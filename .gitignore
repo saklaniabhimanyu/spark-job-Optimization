@@ -1,0 +1,27 @@
+# Data
+data/*.csv
+!data/README.md
+
+# Outputs
+outputs/*.png
+!outputs/.gitkeep
+
+# Spark
+tmp/
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
