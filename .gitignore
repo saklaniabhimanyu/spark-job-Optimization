@@ -1,5 +1,5 @@
 # Data
-data/*.csv
+data/Spark_realtime_metrices.csv
 !data/README.md
 
 # Outputs
