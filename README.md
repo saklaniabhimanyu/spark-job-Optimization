@@ -597,8 +597,3 @@ GitHub: [https://github.com/saklaniabhimanyu](https://github.com/saklaniabhimany
 ---
 
 ⭐ If you find this project useful, consider giving the repository a star.
-
-```
-
-This version is deliberately **not claiming that the project is fully novel**; it describes what you've actually built and makes the remaining research work explicit. The current source README confirms the core completed components—benchmarking, EDA, model comparison, CV, tuning, recommendation, and baseline comparison. :contentReference[oaicite:0]{index=0}
-```
