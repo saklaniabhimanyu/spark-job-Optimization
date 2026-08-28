@@ -1,0 +1,11 @@
+profile,default_time_sec,optimized_time_sec,improvement_pct
+"500K records, very low skew, minimal aggregation",1.93,1.52,21.4
+"1M records, low skew, simple query",1.95,1.56,19.8
+"2M records, moderate skew, single join",2.4,1.56,34.9
+"3M records, low skew, aggregation-heavy query",2.8,1.75,37.5
+"5M records, moderate skew, join + orderby",3.46,1.92,44.5
+"7M records, low skew, multiple joins without orderby",4.31,1.87,56.6
+"8M records, high aggregation, join + orderby",4.97,2.11,57.5
+"10M records, high skew, heavy join workload",5.79,3.48,39.9
+"15M records, extreme skew, complex join workload",7.72,3.77,51.2
+"20M records, high skew, highly selective complex query",9.08,4.14,54.4
