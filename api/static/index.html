@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spark Job Optimizer</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #131826;
+    --panel-border: #232b3d;
+    --text: #e6e9ef;
+    --text-dim: #8b93a7;
+    --accent: #f4b400;
+    --accent-dim: #8a6c1f;
+    --good: #4caf50;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 80px; }
+  header { margin-bottom: 40px; }
+  h1 { font-size: 1.9rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+  header p { color: var(--text-dim); margin: 0; font-size: 0.95rem; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-dim); margin: 0 0 18px; }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  .field { flex: 1; min-width: 180px; }
+  label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
+  input[type=number], select {
+    width: 100%;
+    background: #0e1220;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-value { font-family: var(--mono); color: var(--accent); }
+  .checkbox-field { display: flex; align-items: center; gap: 8px; margin-top: 26px; }
+  .checkbox-field input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .checkbox-field label { margin: 0; }
+
+  button {
+    margin-top: 8px;
+    background: var(--accent);
+    color: #16130a;
+    border: none;
+    padding: 12px 22px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  button:hover { background: #ffcc33; }
+  button:disabled { background: var(--accent-dim); cursor: not-allowed; }
+
+  #status { margin-top: 14px; color: var(--text-dim); font-size: 0.85rem; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 10px 12px; font-size: 0.85rem; }
+  th { color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--panel-border); }
+  td { border-bottom: 1px solid #1b2233; font-family: var(--mono); }
+  tr:first-child td { color: var(--good); font-weight: 600; }
+  .badge {
+    display: inline-block; background: rgba(76,175,80,0.15); color: var(--good);
+    border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; margin-left: 8px;
+  }
+  footer { color: var(--text-dim); font-size: 0.8rem; margin-top: 30px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Spark Job Optimizer</h1>
+      <p>Describe the workload — the tuned XGBoost model ranks candidate Spark configurations (cores, memory, partitions, caching) by predicted execution time.</p>
+    </header>
+
+    <div class="panel">
+      <h2>Workload profile</h2>
+      <div class="row">
+        <div class="field">
+          <label for="records">Number of records</label>
+          <input type="number" id="records" value="1000000" min="1" step="10000" />
+        </div>
+        <div class="field">
+          <label for="groupCard">Group cardinality</label>
+          <input type="number" id="groupCard" value="1000" min="1" />
+        </div>
+        <div class="field">
+          <label for="joins">Joins</label>
+          <select id="joins">
+            <option value="0">0</option>
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="aggs">Aggregations</label>
+          <select id="aggs">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="skew">Skewness — <span id="skewVal" class="slider-value">0.30</span></label>
+          <input type="range" id="skew" min="0" max="1" step="0.01" value="0.3" />
+        </div>
+        <div class="field">
+          <label for="filterSel">Filter selectivity — <span id="filterVal" class="slider-value">0.70</span></label>
+          <input type="range" id="filterSel" min="0" max="1" step="0.01" value="0.7" />
+        </div>
+        <div class="checkbox-field">
+          <input type="checkbox" id="orderby" />
+          <label for="orderby">Has ORDER BY</label>
+        </div>
+      </div>
+
+      <button id="submit">Get recommendation</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="panel" id="resultsPanel" style="display:none;">
+      <h2>Ranked configurations</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th><th>Cores</th><th>Memory</th><th>Partitions</th>
+            <th>Cache</th><th>Predicted time</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+
+    <footer>
+      API docs at <a href="/docs" target="_blank">/docs</a> ·
+      Model info at <a href="/model/info" target="_blank">/model/info</a>
+    </footer>
+  </div>
+
+<script>
+const skewInput = document.getElementById('skew');
+const skewVal = document.getElementById('skewVal');
+skewInput.addEventListener('input', () => { skewVal.textContent = parseFloat(skewInput.value).toFixed(2); });
+
+const filterInput = document.getElementById('filterSel');
+const filterVal = document.getElementById('filterVal');
+filterInput.addEventListener('input', () => { filterVal.textContent = parseFloat(filterInput.value).toFixed(2); });
+
+document.getElementById('submit').addEventListener('click', async () => {
+  const btn = document.getElementById('submit');
+  const status = document.getElementById('status');
+  const resultsPanel = document.getElementById('resultsPanel');
+  const resultsBody = document.getElementById('resultsBody');
+
+  const payload = {
+    num_records: parseInt(document.getElementById('records').value, 10),
+    skewness: parseFloat(skewInput.value),
+    joins: parseInt(document.getElementById('joins').value, 10),
+    group_cardinality: parseInt(document.getElementById('groupCard').value, 10),
+    num_aggregations: parseInt(document.getElementById('aggs').value, 10),
+    has_orderby: document.getElementById('orderby').checked ? 1 : 0,
+    filter_selectivity: parseFloat(filterInput.value),
+    top_n: 5,
+  };
+
+  btn.disabled = true;
+  status.textContent = 'Scoring candidate configurations…';
+  resultsPanel.style.display = 'none';
+
+  try {
+    const res = await fetch('/recommend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Request failed');
+    }
+
+    const data = await res.json();
+    resultsBody.innerHTML = '';
+    data.recommendations.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>#${i + 1}${i === 0 ? '<span class="badge">best</span>' : ''}</td>
+        <td>${r.cores}</td>
+        <td>${r.executor_memory_gb}g</td>
+        <td>${r.partitions}</td>
+        <td>${r.cache_enabled ? 'on' : 'off'}</td>
+        <td>${r.predicted_time_sec.toFixed(2)}s</td>
+      `;
+      resultsBody.appendChild(tr);
+    });
+
+    resultsPanel.style.display = 'block';
+    status.textContent = `${data.recommendations.length} configurations ranked.`;
+  } catch (e) {
+    status.textContent = `Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
