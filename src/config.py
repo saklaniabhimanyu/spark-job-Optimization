@@ -107,10 +107,10 @@ TEST_CASES = [
     (3_000_000,  0.3, 0, 3_000, 4, 0, 0.8, "3M records, low skew, aggregation-heavy query"),
     (5_000_000,  0.5, 2, 5_000, 3, 1, 0.5, "5M records, moderate skew, join + orderby"),
     (7_000_000,  0.2, 2, 7_000, 3, 0, 0.5, "7M records, low skew, multiple joins without orderby"),
-    (8_000_000,  0.6, 2, 10_000, 5, 1, 0.4, "8M records, high aggregation, join + orderby"),
+    (8_000_000,  0.6, 2, 10_000, 4, 1, 0.4, "8M records, high aggregation, join + orderby"),
     (10_000_000, 0.8, 3, 20_000, 4, 1, 0.3, "10M records, high skew, heavy join workload"),
-    (15_000_000, 0.9, 4, 30_000, 6, 1, 0.2, "15M records, extreme skew, complex join workload"),
-    (20_000_000, 0.7, 3, 50_000, 5, 1, 0.1, "20M records, high skew, highly selective complex query"),
+    (15_000_000, 0.9, 4, 30_000, 3, 1, 0.2, "15M records, extreme skew, complex join workload"),
+    (20_000_000, 0.7, 3, 50_000, 4, 1, 0.1, "20M records, high skew, highly selective complex query"),
 ]
 
 for _dir in (DATA_DIR, OUTPUT_DIR, MODELS_DIR):
