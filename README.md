@@ -1,599 +1,506 @@
-# ⚡ AI-Based Spark Job Performance Optimization
+# Spark Job Performance Optimization System
 
-> **A workload-aware ML system for predicting PySpark execution time and recommending optimized Spark configurations.**
+An ML-based system that predicts Apache Spark job execution time and recommends better Spark configurations for different workload profiles.
 
-This project uses real PySpark benchmark executions and machine learning to
-learn the relationship between workload characteristics, Spark configurations,
-and execution time.
-
-The trained model predicts execution time for candidate configurations and
-uses those predictions to recommend configurations expected to provide better
-performance.
+The system uses **XGBoost** to learn the relationship between workload characteristics, Spark resources, and execution time. It then evaluates candidate configurations and ranks them by predicted runtime.
 
 ---
 
-## 🎯 Objective
+## Overview
 
-Given a Spark workload and a set of candidate configurations:
+Spark performance depends heavily on configuration choices such as:
 
-1. Predict the expected execution time.
-2. Rank candidate Spark configurations.
-3. Recommend the configuration with the lowest predicted runtime.
-4. Validate the recommendation using actual PySpark execution.
-
-The system considers parameters such as:
-
-- CPU cores
+- Executor cores
 - Executor memory
 - Number of partitions
-- Dataset size
-- Number of records
+- Cache usage
+- Workload size
 - Data skew
-- Caching
-- Joins
-- Aggregations
-- Filtering
-- Ordering
+- Number of joins and aggregations
 
----
+Finding a good configuration manually can require repeated experimentation.
 
-## 🔄 Pipeline
-
-```text
-Real PySpark Benchmarks
-          ↓
-     Data Validation
-          ↓
-          EDA
-          ↓
-  Feature Engineering
-          ↓
-    Model Comparison
-          ↓
-   5-Fold Cross-Validation
-          ↓
- XGBoost Hyperparameter Tuning
-          ↓
-   Execution-Time Model
-          ↓
- Configuration Recommendation
-          ↓
- Predicted vs Actual Validation
-          ↓
- Default vs ML Comparison
-          ↓
- Generalization Experiments
-````
-
----
-
-# ✅ Completed
-
-## 1. Real PySpark Benchmarking
-
-Execution-time data has been collected from real PySpark benchmark runs across
-different workload and Spark configuration combinations.
-
-The benchmark varies:
-
-* Cores
-* Executor memory
-* Partitions
-* Dataset size
-* Data skew
-* Caching
-* Joins
-* Aggregations
-* Filtering
-* Ordering
-
-Each benchmark records the measured Spark execution time.
-
----
-
-## 2. Exploratory Data Analysis
-
-Completed analysis includes:
-
-* Dataset inspection
-* Missing-value checks
-* Duplicate checks
-* Feature distributions
-* Execution-time distribution
-* Configuration coverage
-* Correlation analysis
-* Core-specific correlation analysis
-* Data-skew analysis
-* Partition/core analysis
-* Configuration-performance relationships
-
----
-
-## 3. Feature Engineering
-
-Domain-specific Spark performance features have been created, including:
-
-* `partition_efficiency`
-* `data_size_gb`
-* `shuffle_size_mb`
-* `shuffle_intensity`
-* `memory_pressure`
-
-These features combine workload and Spark configuration information for
-execution-time prediction.
-
----
-
-## 4. Regression Model Comparison
-
-The following regression models are evaluated:
-
-| Model             | Purpose              |
-| ----------------- | -------------------- |
-| Linear Regression | Baseline             |
-| ElasticNet        | Regularized baseline |
-| Random Forest     | Non-linear ensemble  |
-| Gradient Boosting | Boosting baseline    |
-| XGBoost           | Primary model        |
-
-Models are evaluated using:
-
-* R²
-* MAE
-* RMSE
-* 5-fold cross-validation
-
----
-
-## 5. XGBoost Optimization
-
-XGBoost is used as the primary execution-time prediction model.
-
-Hyperparameters are tuned using cross-validation, including:
-
-* `n_estimators`
-* `max_depth`
-* `learning_rate`
-* `subsample`
-* Regularization parameters
-
----
-
-## 6. Configuration Recommendation Engine
-
-The trained model is used to evaluate candidate Spark configurations.
+This project uses machine learning to reduce that trial-and-error process:
 
 ```text
 Workload Profile
-       ↓
-Generate Candidate Configurations
-       ↓
-Predict Execution Time
-       ↓
-Rank Configurations
-       ↓
-Select Lowest Predicted Runtime
-       ↓
-Recommended Configuration
+       │
+       ▼
+Feature Construction
+       │
+       ▼
+Trained XGBoost Model
+       │
+       ▼
+Evaluate Candidate Configurations
+       │
+       ▼
+Rank by Predicted Execution Time
+       │
+       ▼
+Recommended Spark Configuration
 ```
 
-The recommendation engine searches over combinations of:
+---
 
-* Cores
+## Key Features
+
+* **Execution-time prediction** using XGBoost regression
+* **Spark-specific feature construction** for workload and resource characteristics
+* **Hyperparameter optimization** using RandomizedSearchCV and Optuna/TPE
+* **Cross-validation** and held-out test evaluation
+* **SHAP-based explainability** for understanding model predictions
+* **Configuration recommendation engine** for ranking candidate Spark configurations
+* **Baseline comparison** between default and recommended configurations
+* **Generalization experiments** across different workload conditions
+* **Workload-type evaluation**
+* **MLflow experiment tracking**
+* **FastAPI REST API** for serving recommendations
+* **Automated unit tests** for core recommendation and utility logic
+
+---
+
+## Model Performance
+
+The tuned XGBoost model achieved:
+
+| Metric |     Result |
+| ------ | ---------: |
+| R²     |  **0.941** |
+| MAE    | **0.17 s** |
+
+Evaluation was performed on a held-out test set.
+
+The recommendation engine was additionally evaluated across **10 simulated workload profiles**, where the recommended configurations produced an average **42.1% observed runtime reduction** compared with the selected default configurations.
+
+Because the workloads are simulated, these results should be interpreted as experimental validation of the optimization approach rather than production performance guarantees.
+
+---
+
+## Machine Learning Pipeline
+
+### 1. Workload Generation
+
+The project uses reproducible simulated Spark workloads with different combinations of:
+
+* Number of records
+* Data skew
+* Joins
+* Group cardinality
+* Number of aggregations
+* `ORDER BY`
+* Filter selectivity
+* Spark resource configurations
+
+Execution time is used as the prediction target.
+
+The simulation-based approach makes experiments reproducible without requiring a continuously running Spark cluster.
+
+---
+
+### 2. Feature Construction
+
+The model uses workload and Spark configuration features such as:
+
+```text
+num_records
+cores
+executor_memory_gb
+partitions
+partition_efficiency
+skewness
+joins
+cache_enabled
+group_cardinality
+num_aggregations
+has_orderby
+filter_selectivity
+data_size_gb
+shuffle_size_mb
+shuffle_intensity
+memory_pressure
+```
+
+Derived features capture relationships between workload characteristics and available resources.
+
+---
+
+### 3. Model Comparison
+
+Multiple regression models are evaluated before selecting the final model:
+
+* Linear Regression
+* Elastic Net
+* Random Forest
+* Gradient Boosting
+* XGBoost
+
+Models are evaluated using:
+
+* MAE
+* RMSE
+* R²
+* Cross-validation
+
+The tuned XGBoost model is used for the final recommendation pipeline.
+
+---
+
+### 4. Hyperparameter Optimization
+
+XGBoost hyperparameters are optimized using:
+
+* RandomizedSearchCV
+* Optuna
+* TPE-based optimization
+
+The final model is selected based on validation performance and evaluated on a held-out test set.
+
+---
+
+## Explainability
+
+SHAP is used to understand which features have the greatest influence on predicted Spark execution time.
+
+The analysis helps identify important performance drivers such as:
+
+* Partition count
+* Data skew
+* Number of records
+* Cache enablement
+* Resource allocation
+
+This makes the recommendation system more interpretable than treating the ML model as a black box.
+
+---
+
+## Configuration Recommendation
+
+For a given workload, the recommendation engine evaluates a predefined grid of Spark configurations.
+
+Example:
+
+```text
+Workload
+   │
+   ├── 1M records
+   ├── skew = 0.30
+   ├── joins = 1
+   └── aggregations = 2
+          │
+          ▼
+   Candidate Configurations
+          │
+          ▼
+   XGBoost Predictions
+          │
+          ▼
+   Sort by predicted runtime
+          │
+          ▼
+   Top-N configurations
+```
+
+The output includes the recommended:
+
+* Executor cores
 * Executor memory
-* Partitions
-
----
-
-## 7. Predicted vs Actual Validation
-
-Recommended configurations are executed using real PySpark workloads to
-determine whether the model's predictions correspond to actual performance.
-
-Validation includes:
-
+* Number of partitions
+* Cache setting
 * Predicted execution time
-* Actual execution time
-* Absolute prediction error
-* Actual configuration ranking
-* Recommendation regret
-
-This provides an additional validation layer beyond standard ML metrics.
+* Derived resource/workload features
 
 ---
 
-## 8. Default vs ML-Optimized Performance
+## Evaluation Experiments
 
-The ML-selected configurations are compared against baseline/default Spark
-configurations using actual benchmark execution.
+The project includes several experiments to evaluate the recommendation system beyond model accuracy.
 
-The current experiments demonstrate measurable runtime improvements on the tested
-workload profiles.
+### Recommendation Validation
 
-> Benchmark improvements are environment-dependent and should not be
-> interpreted as universal Spark performance guarantees.
+Tests whether recommended configurations consistently provide better predicted/observed performance than baseline configurations.
 
----
+### Baseline Comparison
 
-## 9. Generalization Analysis
+Compares default Spark configurations against ML-recommended configurations.
 
-The project also evaluates whether the trained model generalizes beyond a
-random train/test split.
+### Generalization
 
-Experiments include:
+Evaluates how the model and recommendation approach behave across workload conditions different from the primary training scenarios.
 
-### Hardware / Configuration Generalization
+### Workload-Type Evaluation
 
-Testing on held-out core and memory configurations to measure performance on
-configurations that were not represented during training.
+Tests recommendations across different workload profiles, including variations in:
 
-### Workload Generalization
+* Data volume
+* Skew
+* Joins
+* Aggregations
+* Ordering
+* Filtering
 
-Testing across different workload characteristics to evaluate how well the
-model transfers to previously unseen workload patterns.
-
----
-
-# 📊 Current Status
-
-The core ML and recommendation pipeline is complete.
-
-Current results demonstrate:
-
-* Strong execution-time prediction on the benchmark dataset
-* XGBoost performing strongly among the evaluated models
-* Clear relationships between Spark configuration and execution time
-* Successful configuration ranking
-* Real Spark validation of ML recommendations
-* Measurable improvement over the tested baseline
-* Separate evaluation of hardware and workload generalization
-
-Exact benchmark results are reported in the notebook because execution time
-depends on the local hardware and Spark environment.
-
----
-
-# 🚧 Next Steps
-
-The project is now moving from **model development** toward stronger
-experimental validation.
-
-## 1. Expand the Benchmark Dataset
-
-Increase the number and diversity of real PySpark benchmark observations.
+Experiment results are stored under:
 
 ```text
-More workloads
-      +
-More core/memory configurations
-      +
-More partition configurations
-      +
-Repeated executions
+outputs/
 ```
 
-The goal is to reduce dependence on a single machine configuration and improve
-generalization.
-
 ---
 
-## 2. Stronger Recommendation Evaluation
+## API
 
-Evaluate the recommendation engine on a larger set of unseen workloads.
+The trained model is exposed through a **FastAPI** service.
 
-For every workload:
+Start the API with:
 
-```text
-Generate Candidate Configurations
-          ↓
-ML Ranking
-          ↓
-Select Top-1 / Top-3 / Top-5
-          ↓
-Execute Selected Configurations
-          ↓
-Compare With Actual Best
+```bash
+uvicorn api.main:app --reload
 ```
 
-Report:
-
-* Top-1 accuracy
-* Top-3 accuracy
-* Top-5 accuracy
-* Mean regret
-* Median regret
-* Worst-case regret
-* Average runtime improvement
-
----
-
-## 3. Compare Against Spark Heuristics
-
-Add meaningful non-ML baselines:
+The API will be available at:
 
 ```text
-Default Spark
-      ↓
-Random Configuration
-      ↓
-2–4 Partitions/Core Heuristic
-      ↓
-ML Recommendation
+http://127.0.0.1:8000
 ```
 
-This will determine whether the ML recommendation provides an advantage over
-simple Spark configuration heuristics.
+### API Documentation
 
----
-
-## 4. Repeated Runtime Validation
-
-Execute each important configuration multiple times and report:
-
-* Mean runtime
-* Median runtime
-* Standard deviation
-* Confidence intervals
-
-This will reduce the effect of machine load and runtime variability.
-
----
-
-## 5. Improve Out-of-Distribution Testing
-
-Increase testing on:
-
-* Unseen hardware configurations
-* Unseen workload types
-* Different dataset sizes
-* Different skew levels
-
-The objective is to determine how reliably the model can recommend
-configurations outside the training distribution.
-
----
-
-## 6. Adaptive Optimization
-
-The long-term goal is to evolve the current recommendation engine into a
-closed-loop optimization system:
+FastAPI automatically provides interactive API documentation at:
 
 ```text
-              Spark Job
-                  ↓
-          Collect Runtime
-                  ↓
-         Predict Performance
-                  ↓
-       Recommend Configuration
-                  ↓
-            Execute Job
-                  ↓
-         Measure Performance
-                  ↓
-          Store New Result
-                  ↓
-           Update Model
-                  ↓
-      Improve Future Recommendations
+http://127.0.0.1:8000/docs
 ```
 
-This would allow the system to continuously learn from real Spark executions.
-
----
-
-# ⚠️ Current Limitations
-
-* Current benchmarks are controlled PySpark workloads rather than production
-  Spark applications.
-* Execution time depends on local hardware and system conditions.
-* The dataset does not cover the complete Spark configuration space.
-* Model performance depends on the benchmark distribution.
-* Configuration recommendation currently uses candidate-grid search.
-* Spark event-log and executor-level telemetry are not yet incorporated.
-* More large-scale unseen-workload validation is required.
-* Reported performance improvements are specific to the evaluated workloads.
-
----
-
-# 📁 Repository Structure
+### Available endpoints
 
 ```text
-spark-job-Optimization/
+GET  /
+GET  /model/info
+POST /recommend
+```
+
+The `/recommend` endpoint accepts a workload profile and returns ranked Spark configuration recommendations.
+
+---
+
+## Running the Application
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/saklaniabhimanyu/spark-job-Optimization.git
+cd spark-job-optimization
+```
+
+### 2. Create a virtual environment
+
+#### Windows
+
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+#### Linux / macOS
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Start the API
+
+```bash
+uvicorn api.main:app --reload
+```
+
+Then open:
+
+```text
+http://localhost:8000
+```
+
+---
+
+## Running Tests
+
+The project includes unit tests for the recommendation engine, feature construction, configuration generation, evaluation utilities, and experiment tracking.
+
+Run:
+
+```bash
+pytest tests/ -v
+```
+
+Current test suite:
+
+```text
+16 tests
+16 passed
+```
+
+The test suite validates:
+
+* Candidate configuration generation
+* Feature ordering
+* Recommendation ranking
+* `top_n` handling
+* Derived feature calculations
+* Evaluation utilities
+* Experiment tracking
+
+---
+
+## 📁 Project Structure
+
+```text
+spark-job-optimization/
+│
+├── api/
+│   └── main.py
+│
+├── src/
+│   ├── config.py
+│   ├── evaluation.py
+│   ├── experiment_tracker.py
+│   ├── recommendation_engine.py
+│   └── spark_utils.py
 │
 ├── notebooks/
-│   └── spark_ai_optimizer.ipynb
+│   └── ...
 │
 ├── data/
-│   ├── Spark_realtime_metrices.csv
-│   ├── sample_Spark_realtime_metrices.csv
-│   └── README.md
+│   └── ...
+│
+├── models/
+│   └── ...
 │
 ├── outputs/
-│   ├── eda_plots.png
-│   ├── dashboard.png
-│   └── feature_importance.png
+│   ├── 09_ranking_evaluation.csv
+│   ├── 10_recommendation_validation.csv
+│   ├── 11_baseline_comparison.csv
+│   ├── 12_generalization_experiment.csv
+│   └── 13_workload_type_experiment.csv
 │
+├── tests/
+│   ├── test_evaluation.py
+│   ├── test_experiment_tracker.py
+│   └── test_recommendation_engine.py
+│
+├── main.py
 ├── requirements.txt
+├── pyproject.toml
+├── Dockerfile
 ├── .gitignore
 └── README.md
 ```
 
-The full benchmark dataset is excluded from Git using `.gitignore`.
-
-A smaller sample dataset is included for testing and demonstrating the
-pipeline.
-
 ---
 
-# 🛠️ Technology Stack
-
-### Big Data
-
-* Apache Spark
-* PySpark
+## 🛠️ Tech Stack
 
 ### Machine Learning
 
 * Python
 * Scikit-learn
 * XGBoost
+* Optuna
+* SHAP
 
-### Data Processing
+### Data & Big Data
 
+* Apache Spark
+* PySpark
 * Pandas
 * NumPy
 
-### Visualization
-
-* Matplotlib
-* Seaborn
-
-### Experiment Tracking
+### Experimentation
 
 * MLflow
-
-### Development
-
 * Jupyter Notebook
+
+### API & Deployment
+
+* FastAPI
+* Uvicorn
+* Docker
+
+### Testing & Development
+
+* Pytest
 * Git
 * GitHub
 
 ---
 
-# ⚙️ Installation
+## Results
 
-## Clone the Repository
+The system demonstrates that a machine-learning model can learn relationships between Spark workload characteristics and execution performance and use those predictions to rank candidate configurations.
 
-```bash
-git clone https://github.com/saklaniabhimanyu/spark-job-Optimization.git
-cd spark-job-Optimization
-```
+The tuned XGBoost model achieved:
 
-## Create Environment
+**R² = 0.941**
+**MAE = 0.17 seconds**
 
-### Windows
+Across the evaluated simulated workloads, ML-based configuration recommendations produced an average:
 
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
+**42.1% observed runtime reduction**
 
-### Linux / macOS
+compared with the selected default configurations.
 
-```bash
-python -m venv venv
-source venv/bin/activate
-```
+The project also uses SHAP analysis to provide insight into the factors influencing runtime predictions.
 
-## Install Dependencies
+---
+## Limitations
 
-```bash
-pip install -r requirements.txt
-```
+The current implementation has several limitations:
+
+* Training data is primarily simulation-based.
+* Simulated execution times may not capture all real Spark cluster behaviour.
+* Hardware differences, network latency, JVM overhead, storage systems, and cluster contention are not fully represented.
+* Recommendations are restricted to the candidate configuration grid.
+* Runtime improvements depend on the workload and environment.
+
+Therefore, recommendations should be validated against real Spark workloads before production use.
 
 ---
 
-# ▶️ Running the Project
+## Future Work
 
-Place the full dataset at:
+Potential improvements include:
 
-```text
-data/Spark_realtime_metrices.csv
-```
-
-The full dataset is ignored by Git.
-
-For a quick test, use the sample dataset:
-
-```text
-data/sample/Spark_realtime_metrices.csv
-```
-
-Launch Jupyter:
-
-```bash
-jupyter notebook
-```
-
-Then open:
-
-```text
-notebooks/spark_ai_optimizer.ipynb
-```
-
-Run the notebook sequentially.
+* Training on real Spark History Server and execution logs
+* Integration with real Spark clusters
+* Cost-aware configuration optimization
+* Kubernetes/YARN integration
+* Online/adaptive configuration tuning
+* Multi-objective optimization for runtime and resource cost
+* Automated CI/CD deployment
+* Larger and more diverse workload datasets
 
 ---
 
-# 📦 Dataset
+## Project Goal
 
-Each row represents one PySpark benchmark execution.
+The goal of this project is to explore how **machine learning can reduce manual Spark performance tuning** by predicting execution time and automatically identifying promising configurations for different workload conditions.
 
-Important columns include:
+It combines:
 
-* `num_records`
-* `cores`
-* `executor_memory_gb`
-* `partitions`
-* `partition_efficiency`
-* `skewness`
-* `joins`
-* `cache_enabled`
-* `group_cardinality`
-* `num_aggregations`
-* `has_orderby`
-* `filter_selectivity`
-* `data_size_gb`
-* `shuffle_size_mb`
-* `shuffle_intensity`
-* `memory_pressure`
-* `execution_time`
+**Apache Spark + Machine Learning + Explainable AI + Configuration Optimization + API Deployment**
 
-`execution_time` is the target variable used for ML prediction.
-
-See [`data/README.md`](data/README.md) for dataset details.
-
+into a reproducible end-to-end system.
 ---
+## Author
+- Abhimanyu Saklani
 
-# 🎯 Project Direction
+If you found this project useful or have suggestions for improvement, feel free to open an issue or connect with me.
 
-The current system focuses on:
+GitHub: https://github.com/saklaniabhimanyu
 
-```text
-Prediction
-    +
-Recommendation
-    +
-Real Spark Validation
-```
-
-The next stage focuses on:
-
-```text
-Generalization
-    +
-Stronger Baselines
-    +
-Larger Validation
-    +
-Repeated Experiments
-    +
-Adaptive Learning
-```
-
-The long-term objective is a workload-aware Spark optimization system that can
-learn from previous executions and improve future configuration
-recommendations.
-
----
-
-# 👤 Author
-
-**Abhimanyu Saklani**
-
-GitHub: [https://github.com/saklaniabhimanyu](https://github.com/saklaniabhimanyu)
-
----
-
-⭐ If you find this project useful, consider giving the repository a star.
+⭐ If you like this project, consider giving it a star!
