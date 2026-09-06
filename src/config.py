@@ -19,6 +19,7 @@ TUNABLE_FEATURES = ["cores", "executor_memory_gb", "partitions", "cache_enabled"
 DERIVED_FEATURES = [
     "partition_efficiency", "data_size_gb", "shuffle_size_mb",
     "shuffle_intensity", "memory_pressure",
+    "records_per_partition", "join_load",
 ]
 
 # Exact column order of the real benchmark CSV (minus the target).
@@ -28,6 +29,7 @@ FEATURES = [
     "group_cardinality", "num_aggregations", "has_orderby",
     "filter_selectivity", "data_size_gb", "shuffle_size_mb",
     "shuffle_intensity", "memory_pressure",
+    "records_per_partition", "join_load",
 ]
 TARGET = "execution_time"
 

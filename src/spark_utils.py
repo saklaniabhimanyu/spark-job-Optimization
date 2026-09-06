@@ -63,15 +63,14 @@ def create_spark_session(cores: int, memory_gb: int, max_retries: int = 3,
     raise RuntimeError("Unreachable")
 
 
-def compute_derived_features(num_records, cores, memory_gb, partitions, joins):
-    """The same deterministic formulas run_job() uses to compute derived
-    columns — factored out so the recommendation engine can compute them
-    for a candidate config without actually running a Spark job."""
+def compute_derived_features(num_records, cores, memory_gb, partitions, joins, group_cardinality):
     data_size_gb = (num_records * 100) / (1024 ** 3)
     partition_efficiency = partitions / cores
     shuffle_size_mb = num_records * joins * 0.00005
     shuffle_intensity = joins * data_size_gb
     memory_pressure = data_size_gb / memory_gb
+    records_per_partition = num_records / partitions
+    join_load = joins * group_cardinality
 
     return {
         "data_size_gb": round(data_size_gb, 4),
@@ -79,6 +78,8 @@ def compute_derived_features(num_records, cores, memory_gb, partitions, joins):
         "shuffle_size_mb": round(shuffle_size_mb, 4),
         "shuffle_intensity": round(shuffle_intensity, 4),
         "memory_pressure": round(memory_pressure, 4),
+        "records_per_partition": round(records_per_partition, 4),
+        "join_load": round(join_load, 4),
     }
 
 
@@ -145,8 +146,9 @@ def run_job(spark, num_records, partitions, skew, joins, cache, memory_gb,
         df.unpersist(blocking=True)
 
     actual_cores = spark.sparkContext.defaultParallelism
-    derived = compute_derived_features(num_records, actual_cores, memory_gb, partitions, joins)
-
+    derived = compute_derived_features(
+        num_records, actual_cores, memory_gb, partitions, joins, group_cardinality
+    )
     return {
         "num_records": num_records,
         "cores": actual_cores,
@@ -164,6 +166,8 @@ def run_job(spark, num_records, partitions, skew, joins, cache, memory_gb,
         "shuffle_size_mb": derived["shuffle_size_mb"],
         "shuffle_intensity": derived["shuffle_intensity"],
         "memory_pressure": derived["memory_pressure"],
+        "records_per_partition": derived["records_per_partition"],
+        "join_load": derived["join_load"],
         "execution_time": execution_time,
     }
 

@@ -12,6 +12,7 @@ def _build_feature_row(workload: dict, tunable: dict):
         memory_gb=tunable["executor_memory_gb"],
         partitions=tunable["partitions"],
         joins=workload["joins"],
+        group_cardinality=workload["group_cardinality"],
     )
     full = {**workload, **tunable, **derived}
     return [full[f] for f in FEATURES]
@@ -33,7 +34,7 @@ def recommend_configs(model, workload: dict, top_n=5, candidate_grid=None):
         derived = compute_derived_features(
             num_records=workload["num_records"], cores=tunable["cores"],
             memory_gb=tunable["executor_memory_gb"], partitions=tunable["partitions"],
-            joins=workload["joins"],
+            joins=workload["joins"], group_cardinality=workload["group_cardinality"],
         )
         rows.append({**tunable, "predicted_time_sec": predicted_time, **derived})
 
