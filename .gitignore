@@ -3,7 +3,6 @@ data/Spark_realtime_metrices.csv
 !data/README.md
 
 # Outputs
-outputs/*.png
 !outputs/.gitkeep
 
 # Spark
